@@ -62,9 +62,14 @@ public class CustomBiomeResourcePackManager {
 
     // The pack UUIDs hash this salt and the asset bytes, but not the manifest; bump it when
     // the manifest changes, so clients drop their cached copy
-    private static final long RESOURCE_PACK_VERSION = 1;
+    private static final long RESOURCE_PACK_VERSION = 2;
 
     private static final String PACK_ROOT = "custom_biome_pack/";
+    // The icon the client shows for this pack. It is written outside the hashed file map,
+    // like every other fixed pack member, so the version salt above is what invalidates it.
+    private static final String PACK_ICON = "pack_icon.png";
+    // Geyser's own icon, so this pack looks the same as the other Geyser-generated packs
+    private static final String PACK_ICON_RESOURCE = "assets/geyser/icon.png";
     // The newest schema the pack can contain is the 1.26.0 water format; every supported
     // client has it
     private static final String MIN_ENGINE_VERSION = "[1, 26, 0]";
@@ -103,6 +108,7 @@ public class CustomBiomeResourcePackManager {
         GeyserImpl.getInstance().getLogger().info("Creating custom biome resource pack.");
         try (ZipOutputStream zipOS = new ZipOutputStream(Files.newOutputStream(packPath))) {
             writeEntry(zipOS, PACK_ROOT + "manifest.json", manifestJson(uuids).getBytes(StandardCharsets.UTF_8));
+            writeEntry(zipOS, PACK_ROOT + PACK_ICON, FileUtils.readAllBytes(PACK_ICON_RESOURCE));
             for (Map.Entry<String, byte[]> file : files.entrySet()) {
                 writeEntry(zipOS, PACK_ROOT + file.getKey(), file.getValue());
             }
@@ -312,6 +318,7 @@ public class CustomBiomeResourcePackManager {
               "header": {
                 "name": "Geyser Custom Biomes",
                 "description": "Client-side visuals for custom biomes registered through the Geyser API",
+                "icon": "%s",
                 "uuid": "%s",
                 "version": [1, 0, 0],
                 "min_engine_version": %s
@@ -325,7 +332,7 @@ public class CustomBiomeResourcePackManager {
               ],
               "capabilities": ["pbr"]
             }
-            """.formatted(uuids.first(), MIN_ENGINE_VERSION, uuids.second());
+            """.formatted(PACK_ICON, uuids.first(), MIN_ENGINE_VERSION, uuids.second());
     }
 
     /**

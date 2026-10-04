@@ -53,6 +53,7 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -212,10 +213,25 @@ public class CustomBiomeResourcePackManagerTest {
                 .get("custom_biome_pack/manifest.json");
             assertNotNull(manifest);
             assertEquals("[\"pbr\"]", manifest.getAsJsonArray("capabilities").toString());
+            assertEquals("pack_icon.png", manifest.getAsJsonObject("header").get("icon").getAsString());
             assertEquals("[1,26,0]", manifest.getAsJsonObject("header").get("min_engine_version").getAsJsonArray().toString());
             assertEquals(1, manifest.getAsJsonArray("modules").size());
             assertNotEquals(manifest.getAsJsonObject("header").get("uuid").getAsString(),
                 manifest.getAsJsonArray("modules").get(0).getAsJsonObject().get("uuid").getAsString());
+        });
+    }
+
+    @Test
+    void packShipsTheGeyserIcon() {
+        GeyserMockContext.mockContext(context -> {
+            setup(context);
+            catalogue(Map.of("test:java_styled", definition("test:styled", true)));
+
+            // Declaring the icon in the header is not enough on its own; the file has to be in
+            // the pack or the client falls back to its own default icon
+            byte[] icon = zipEntry(CustomBiomeResourcePackManager.createResourcePack(),
+                "custom_biome_pack/pack_icon.png");
+            assertArrayEquals(geyserIcon(), icon);
         });
     }
 
@@ -303,6 +319,31 @@ public class CustomBiomeResourcePackManagerTest {
             throw new AssertionError(e);
         }
         return files;
+    }
+
+    private static byte[] zipEntry(Path pack, String name) {
+        assertNotNull(pack);
+        try (ZipFile zipFile = new ZipFile(pack.toFile())) {
+            ZipEntry entry = zipFile.getEntry(name);
+            if (entry == null) {
+                return null;
+            }
+            try (InputStream stream = zipFile.getInputStream(entry)) {
+                return stream.readAllBytes();
+            }
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static byte[] geyserIcon() {
+        try (InputStream stream = CustomBiomeResourcePackManagerTest.class
+            .getClassLoader().getResourceAsStream("assets/geyser/icon.png")) {
+            assertNotNull(stream);
+            return stream.readAllBytes();
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static UUID[] packUuids(Path pack) {
