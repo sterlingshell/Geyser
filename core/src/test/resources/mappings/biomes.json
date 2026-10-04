@@ -1,0 +1,14 @@
+{
+	"minecraft:ocean": {
+		"bedrock_id": 0
+	},
+	"minecraft:plains": {
+		"bedrock_id": 1
+	},
+	"minecraft:nether_wastes": {
+		"bedrock_id": 8
+	},
+	"minecraft:the_end": {
+		"bedrock_id": 9
+	}
+}
