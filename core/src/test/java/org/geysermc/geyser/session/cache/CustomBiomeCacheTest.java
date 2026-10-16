@@ -39,10 +39,11 @@ import org.geysermc.geyser.level.JavaBiome;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.scoreboard.network.util.GeyserMockContext;
 import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.session.cache.registry.JavaRegistries;
-import org.geysermc.geyser.session.cache.registry.RegistryEntryContext;
-import org.geysermc.geyser.session.cache.registry.RegistryEntryData;
-import org.geysermc.geyser.session.cache.registry.SimpleJavaRegistry;
+import org.geysermc.geyser.registry.java.JavaRegistries;
+import org.geysermc.geyser.registry.java.JavaRegistryProvider;
+import org.geysermc.geyser.registry.java.RegistryEntryData;
+import org.geysermc.geyser.registry.java.SimpleJavaRegistry;
+import org.geysermc.geyser.registry.java.reader.RegistryEntryContext;
 import org.geysermc.geyser.translator.level.BiomeTranslator;
 import org.geysermc.geyser.util.MinecraftKey;
 import org.geysermc.mcprotocollib.protocol.data.game.RegistryEntry;
@@ -97,7 +98,8 @@ public class CustomBiomeCacheTest {
             .putFloat("downfall", 0.15F)
             .putBoolean("has_precipitation", false)
             .build());
-        JavaBiome biome = BiomeTranslator.loadServerBiome(new RegistryEntryContext(modded, key -> -1, Optional.empty()));
+        JavaBiome biome = BiomeTranslator.loadServerBiome(
+            new RegistryEntryContext(mock(JavaRegistryProvider.class), modded, Optional.empty()));
         assertEquals(UNKNOWN_BIOME, biome.bedrockId());
         assertEquals(1.9F, biome.temperature());
         assertEquals(0.15F, biome.downfall());
@@ -105,7 +107,7 @@ public class CustomBiomeCacheTest {
 
         RegistryEntry vanilla = new RegistryEntry(MinecraftKey.key("minecraft:plains"), NbtMap.EMPTY);
         assertNotEquals(UNKNOWN_BIOME, BiomeTranslator.loadServerBiome(
-            new RegistryEntryContext(vanilla, key -> -1, Optional.empty())).bedrockId());
+            new RegistryEntryContext(mock(JavaRegistryProvider.class), vanilla, Optional.empty())).bedrockId());
     }
 
     @Test
@@ -294,16 +296,16 @@ public class CustomBiomeCacheTest {
      */
     private static class TestSession {
         private final GeyserSession session = mock(GeyserSession.class);
-        private final SimpleJavaRegistry<JavaBiome> registry = new SimpleJavaRegistry<>();
+        private final SimpleJavaRegistry<JavaBiome> registry = new SimpleJavaRegistry<>(JavaRegistries.BIOME);
         private final List<BedrockPacket> packets = new ArrayList<>();
         private final AtomicBoolean spawned = new AtomicBoolean();
         private final CustomBiomeCache cache;
 
         TestSession(String... javaIdentifiers) {
             reset(javaIdentifiers);
-            RegistryCache registryCache = mock(RegistryCache.class);
-            when(session.getRegistryCache()).thenReturn(registryCache);
-            when(registryCache.registry(JavaRegistries.BIOME)).thenReturn(registry);
+            JavaRegistryProvider registries = mock(JavaRegistryProvider.class);
+            when(session.javaRegistries()).thenReturn(registries);
+            when(registries.registry(JavaRegistries.BIOME)).thenReturn(registry);
             when(session.isSentSpawnPacket()).thenAnswer(invocation -> spawned.get());
             GeyserImpl geyser = GeyserImpl.getInstance();
             when(session.getGeyser()).thenReturn(geyser);
@@ -324,15 +326,16 @@ public class CustomBiomeCacheTest {
         }
 
         void reset(JavaBiome data, String... javaIdentifiers) {
-            List<RegistryEntryData<JavaBiome>> entries = new ArrayList<>();
+            registry.clear();
             for (int i = 0; i < javaIdentifiers.length; i++) {
-                entries.add(new RegistryEntryData<>(i, MinecraftKey.key(javaIdentifiers[i]), data));
+                registry.register(i, MinecraftKey.key(javaIdentifiers[i]));
             }
-            registry.reset(entries);
+            registry.freeze(id -> data);
         }
 
         int biomeValue(String javaIdentifier) {
-            for (RegistryEntryData<JavaBiome> entry : registry.entries()) {
+            for (int i = 0; i < registry.size(); i++) {
+                RegistryEntryData<JavaBiome> entry = registry.getById(i).orElseThrow();
                 if (entry.key().asString().equals(javaIdentifier)) {
                     return entry.data().bedrockId();
                 }

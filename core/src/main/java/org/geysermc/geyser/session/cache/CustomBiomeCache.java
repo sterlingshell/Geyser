@@ -27,7 +27,6 @@ package org.geysermc.geyser.session.cache;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.kyori.adventure.key.Key;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
@@ -36,10 +35,9 @@ import org.geysermc.geyser.api.biome.custom.CustomBiomeDefinition;
 import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.level.JavaBiome;
 import org.geysermc.geyser.registry.Registries;
+import org.geysermc.geyser.registry.java.JavaRegistries;
+import org.geysermc.geyser.registry.java.JavaRegistry;
 import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.session.cache.registry.JavaRegistries;
-import org.geysermc.geyser.session.cache.registry.JavaRegistry;
-import org.geysermc.geyser.session.cache.registry.RegistryEntryData;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -114,17 +112,15 @@ public final class CustomBiomeCache {
             return;
         }
 
-        JavaRegistry<JavaBiome> biomes = session.getRegistryCache().registry(JavaRegistries.BIOME);
-        List<RegistryEntryData<JavaBiome>> entries = biomes.entries();
+        JavaRegistry<JavaBiome> biomes = session.javaRegistries().registry(JavaRegistries.BIOME);
 
         List<Claim> claims = new ArrayList<>();
-        for (int i = 0; i < entries.size(); i++) {
-            RegistryEntryData<JavaBiome> entry = entries.get(i);
+        biomes.forEachEntry(entry -> {
             CustomBiomeDefinition definition = catalogue.get(Identifier.of(entry.key().asString()));
             if (definition != null) {
-                claims.add(new Claim(i, definition, entry.data()));
+                claims.add(new Claim(entry.id(), definition, entry.data()));
             }
-        }
+        });
         if (claims.isEmpty()) {
             return;
         }
@@ -143,9 +139,9 @@ public final class CustomBiomeCache {
         }
 
         if (!session.isSentSpawnPacket()) {
-            prepareLoginCandidate(claims, entries);
+            prepareLoginCandidate(claims);
         } else {
-            reconcileSpawned(claims, entries);
+            reconcileSpawned(claims);
         }
     }
 
@@ -155,14 +151,14 @@ public final class CustomBiomeCache {
      * spawn packet precedes the commit, so {@link #sent} is always empty here and every
      * claim is new.
      */
-    private void prepareLoginCandidate(List<Claim> claims, List<RegistryEntryData<JavaBiome>> entries) {
+    private void prepareLoginCandidate(List<Claim> claims) {
         Map<Identifier, SentBiome> union = new Object2ObjectOpenHashMap<>();
         Set<String> pool = new ObjectOpenHashSet<>(pooledStrings);
-        Map<Key, Identifier> claimed = new Object2ObjectOpenHashMap<>();
+        Map<Integer, Identifier> claimed = new Object2ObjectOpenHashMap<>();
         int skipped = 0;
         for (Claim claim : claims) {
             if (admit(claim, union, pool)) {
-                claimed.put(entries.get(claim.index()).key(), claim.definition().bedrockIdentifier());
+                claimed.put(claim.id(), claim.definition().bedrockIdentifier());
             } else {
                 skipped++;
             }
@@ -177,19 +173,14 @@ public final class CustomBiomeCache {
         sent.putAll(pending.union());
         pooledStrings = pending.pool();
 
-        List<RegistryEntryData<JavaBiome>> entries = session.getRegistryCache().registry(JavaRegistries.BIOME).entries();
-        for (int i = 0; i < entries.size(); i++) {
-            RegistryEntryData<JavaBiome> entry = entries.get(i);
-            Identifier bedrockIdentifier = pending.claims().get(entry.key());
-            if (bedrockIdentifier != null) {
-                entries.set(i, new RegistryEntryData<>(entry.id(), entry.key(),
-                    entry.data().withBedrockId(sent.get(bedrockIdentifier).id())));
-            }
+        JavaRegistry<JavaBiome> biomes = session.javaRegistries().registry(JavaRegistries.BIOME);
+        for (Map.Entry<Integer, Identifier> claim : pending.claims().entrySet()) {
+            biomes.rebind(claim.getKey(), biomes.getOrThrow(claim.getKey()).withBedrockId(sent.get(claim.getValue()).id()));
         }
         return pending.definitions();
     }
 
-    private void reconcileSpawned(List<Claim> claims, List<RegistryEntryData<JavaBiome>> entries) {
+    private void reconcileSpawned(List<Claim> claims) {
         boolean unionGrew = false;
         for (Claim claim : claims) {
             if (!sent.containsKey(claim.definition().bedrockIdentifier())) {
@@ -205,6 +196,7 @@ public final class CustomBiomeCache {
         }
 
         // Rewrite the registry only after the definition list is queued
+        JavaRegistry<JavaBiome> biomes = session.javaRegistries().registry(JavaRegistries.BIOME);
         int skipped = 0;
         for (Claim claim : claims) {
             SentBiome sentBiome = sent.get(claim.definition().bedrockIdentifier());
@@ -214,8 +206,7 @@ public final class CustomBiomeCache {
                 skipped++;
                 continue;
             }
-            RegistryEntryData<JavaBiome> entry = entries.get(claim.index());
-            entries.set(claim.index(), new RegistryEntryData<>(entry.id(), entry.key(), entry.data().withBedrockId(sentBiome.id())));
+            biomes.rebind(claim.id(), claim.biome().withBedrockId(sentBiome.id()));
         }
         warnSkipped(skipped);
     }
@@ -286,13 +277,13 @@ public final class CustomBiomeCache {
         }
     }
 
-    private record Claim(int index, CustomBiomeDefinition definition, JavaBiome biome) {
+    private record Claim(int id, CustomBiomeDefinition definition, JavaBiome biome) {
     }
 
     private record SentBiome(int id, BiomeDefinitionData data) {
     }
 
     private record PendingCatalogue(BiomeDefinitions definitions, Map<Identifier, SentBiome> union,
-                                    Set<String> pool, Map<Key, Identifier> claims) {
+                                    Set<String> pool, Map<Integer, Identifier> claims) {
     }
 }
