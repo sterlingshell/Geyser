@@ -109,6 +109,7 @@ import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateClientInputLocksPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateSoftEnumPacket;
 import org.cloudburstmc.protocol.bedrock.packet.VoxelShapesPacket;
+import org.cloudburstmc.protocol.bedrock.util.JoinAddress;
 import org.cloudburstmc.protocol.common.util.OptionalBoolean;
 import org.geysermc.api.util.BedrockPlatform;
 import org.geysermc.api.util.InputMode;
@@ -162,11 +163,11 @@ import org.geysermc.geyser.level.BedrockDimension;
 import org.geysermc.geyser.level.JavaDimension;
 import org.geysermc.geyser.level.gamerule.GameRuleHandler;
 import org.geysermc.geyser.level.physics.CollisionManager;
-import org.geysermc.geyser.network.JoinAddress;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.java.LocalSession;
 import org.geysermc.geyser.registry.Registries;
-import org.geysermc.geyser.registry.java.JavaRegistry;
+import org.geysermc.geyser.registry.java.JavaRegistries;
+import org.geysermc.geyser.registry.java.JavaRegistryProvider;
 import org.geysermc.geyser.registry.type.BlockMappings;
 import org.geysermc.geyser.registry.type.ItemMappings;
 import org.geysermc.geyser.session.auth.AuthData;
@@ -190,8 +191,6 @@ import org.geysermc.geyser.session.cache.StructureBlockCache;
 import org.geysermc.geyser.session.cache.TeleportCache;
 import org.geysermc.geyser.session.cache.WorldBorder;
 import org.geysermc.geyser.session.cache.WorldCache;
-import org.geysermc.geyser.registry.java.JavaRegistries;
-import org.geysermc.geyser.registry.java.JavaRegistryProvider;
 import org.geysermc.geyser.session.cache.registry.JavaRegistryTagCache;
 import org.geysermc.geyser.session.cache.tags.DialogTag;
 import org.geysermc.geyser.session.cache.waypoint.WaypointCache;
@@ -269,7 +268,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Getter
-public class GeyserSession implements GeyserConnection, GeyserCommandSource {
+public class GeyserSession implements GeyserConnection, GeyserCommandSource, JavaRegistryProvider.Provider {
     private static final String UNKNOWN_LOG_NAME = "This account";
 
     private final GeyserImpl geyser;
@@ -305,8 +304,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     private final BookEditCache bookEditCache;
     private final BundleCache bundleCache;
     private final ChunkCache chunkCache;
-    private final ComponentCache componentCache;
-    private final CustomBiomeCache customBiomeCache;
     private final EntityCache entityCache;
     private final EntityEffectCache effectCache;
     private final FormCache formCache;
@@ -317,6 +314,8 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     private final PreferencesCache preferencesCache;
     @Accessors(fluent = true)
     private final JavaRegistryProvider javaRegistries;
+    private final ComponentCache componentCache;
+    private final CustomBiomeCache customBiomeCache;
     private final SkullCache skullCache;
     private final StructureBlockCache structureBlockCache;
     private final WaypointCache waypointCache;
@@ -868,8 +867,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         this.bookEditCache = new BookEditCache(this);
         this.bundleCache = new BundleCache(this);
         this.chunkCache = new ChunkCache(this);
-        this.componentCache = new ComponentCache(this);
-        this.customBiomeCache = new CustomBiomeCache(this);
         this.entityCache = new EntityCache(this);
         this.effectCache = new EntityEffectCache();
         this.formCache = new FormCache(this);
@@ -878,6 +875,8 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
         this.pistonCache = new PistonCache(this);
         this.preferencesCache = new PreferencesCache(this);
         this.javaRegistries = new JavaRegistryTagCache();
+        this.componentCache = new ComponentCache(this.javaRegistries);
+        this.customBiomeCache = new CustomBiomeCache(this);
         this.skullCache = new SkullCache(this);
         this.structureBlockCache = new StructureBlockCache();
         this.waypointCache = new WaypointCache(this);
@@ -907,12 +906,11 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
      * Send all necessary packets to load Bedrock into the server
      */
     public void connect() {
-        // Note: DIMENSION_TYPE registry may be uninitialised here if the player is connecting from online mode,
-        // so we have to check explicitly using isEmpty
         int minY = BedrockDimension.OVERWORLD.minY();
         int maxY = BedrockDimension.OVERWORLD.maxY();
-        JavaRegistry<JavaDimension> dimensions = this.javaRegistries.registry(JavaRegistries.DIMENSION_TYPE);
-        if (!dimensions.isEmpty()) {
+
+        // If not in GAME state, then the DIMENSION_TYPE registry will be uninitialised.
+        if (downstream != null && downstream.isState(ProtocolState.GAME)) {
             for (JavaDimension javaDimension : this.javaRegistries.registry(JavaRegistries.DIMENSION_TYPE)) {
                 if (javaDimension.bedrockId() == BedrockDimension.OVERWORLD_ID) {
                     minY = Math.min(minY, javaDimension.minY());
@@ -1786,16 +1784,16 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
 
     @Override
     public @NonNull String joinAddress() {
-        return parsedJoinAddress().host();
+        return parsedJoinAddress().getHost();
     }
 
     @Override
     public @Positive int joinPort() {
-        return parsedJoinAddress().port();
+        return parsedJoinAddress().getPort();
     }
 
     private JoinAddress parsedJoinAddress() {
-        // NetherNet clients send the signaling URL they used, e.g. http://example.com:19132
+        // NetherNet clients send the signaling URL they used, e.g. http://example.com:19132:19132
         String combined = Optional.ofNullable(clientData).orElseThrow().getServerAddress();
         return JoinAddress.parse(combined, geyser.config().bedrock().port());
     }
@@ -1883,7 +1881,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource {
     @Override
     public boolean sendForm(@NonNull Form form) {
         // Check if we're in the config stage, if so, prepare the client for forms
-        if (this.downstream != null && this.downstream.getSession().getPacketProtocol().getInboundState().equals(ProtocolState.CONFIGURATION)) {
+        if (this.downstream != null && this.downstream.isState(ProtocolState.CONFIGURATION)) {
             this.prepareForConfigurationForm();
         }
         // First close any dialogs that are open. This won't execute the dialog's closing action.

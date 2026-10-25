@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023 GeyserMC. http://geysermc.org
+ * Copyright (c) 2026 GeyserMC. http://geysermc.org
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,25 +23,26 @@
  * @link https://github.com/GeyserMC/Geyser
  */
 
-package org.geysermc.geyser.item.type;
+package org.geysermc.geyser.translator.text;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.geysermc.geyser.item.TooltipOptions;
+import net.kyori.adventure.text.Component;
 import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.translator.item.BedrockItemBuilder;
-import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponents;
 
-public class DyeableArmorItem extends ArmorItem {
-    public DyeableArmorItem(String javaIdentifier, Builder builder) {
-        super(javaIdentifier, builder);
-    }
+/**
+ * Converts a Java {@link Component} to a Bedrock legacy-formatted {@link String}.
+ *
+ * <p>Implementations usually do this using the methods available in {@link MessageTranslator}, possibly using a player's locale.
+ * This interface essentially <a href="https://en.wikipedia.org/wiki/Currying">curries</a> the player's locale (and as such, in many cases, the {@link GeyserSession})
+ * outside of the {@code convertMessage} method, leading to a simpler signature.</p>
+ *
+ * <p>It is planned to expand the usage of this interface in the future, reducing the need to pass a {@link GeyserSession} around.</p>
+ */
+@FunctionalInterface
+public interface TextTranslator {
 
-    @Override
-    public void translateComponentsToBedrock(@NonNull GeyserSession session, @NonNull DataComponents components, @NonNull TooltipOptions tooltip, @NonNull BedrockItemBuilder builder) {
-        super.translateComponentsToBedrock(session, components, tooltip, builder);
+    String convertText(Component component);
 
-        // Note that this is handled as of 1.20.5 in the ItemColors class.
-        // But horse leather armor and body leather armor are now both armor items. So it works!
-        translateDyedColor(components, builder);
+    static TextTranslator forLocale(String locale) {
+        return component -> MessageTranslator.convertMessage(component, locale);
     }
 }

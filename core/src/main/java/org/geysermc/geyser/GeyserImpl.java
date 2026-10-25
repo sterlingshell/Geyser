@@ -444,6 +444,17 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
             }
         }
 
+        String stunDiscoveryProperty = System.getProperty("geyserStunDiscovery", "");
+        if (!stunDiscoveryProperty.isEmpty()) {
+            if (stunDiscoveryProperty.equalsIgnoreCase("true") || stunDiscoveryProperty.equalsIgnoreCase("false")) {
+                boolean stunDiscovery = Boolean.parseBoolean(stunDiscoveryProperty);
+                config.bedrock().signaling().stunDiscovery(stunDiscovery);
+                logger.info("STUN discovery set from system property: " + stunDiscovery);
+            } else {
+                logger.error("Invalid STUN discovery from system property: " + stunDiscoveryProperty + "! Use \"true\" or \"false\". Defaulting to configured STUN discovery.");
+            }
+        }
+
         // The explicit WebRTC port property always wins. Without it, and with only NetherNet, WebRTC is the only
         // UDP service, so it follows the UDP port property; with "both", RakNet keeps that port.
         int webrtcPort = portProperty("geyserWebrtcPort", "NetherNet (WebRTC)", logger);
@@ -510,6 +521,14 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         if (transport.nethernet()) {
             this.netherNetServer = new NetherNetServer(this);
             this.netherNetServer.start();
+        } else {
+            logger.error("      / \\");
+            logger.error("     /   \\      WARNING! NetherNet support is NOT enabled.");
+            logger.error("    /  |  \\     Players will not be able to connect to your server,");
+            logger.error("   /   |   \\    starting October 27th, when NetherNet is scheduled to release.");
+            logger.error("  /         \\   Please see our blog post over at https://geysermc.org/blog/preparing-for-nethernet");
+            logger.error(" /     o     \\  on how to enable NetherNet support.");
+            logger.error("/_____________\\");
         }
 
         if (config.java().authType() == AuthType.FLOODGATE) {

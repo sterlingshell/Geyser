@@ -57,7 +57,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -101,7 +100,7 @@ public class CustomBiomeCacheTest {
             .putBoolean("has_precipitation", false)
             .build());
         JavaBiome biome = BiomeTranslator.loadServerBiome(
-            new RegistryEntryContext(mock(JavaRegistryProvider.class), modded, Optional.empty()));
+            new RegistryEntryContext(mock(JavaRegistryProvider.class), modded));
         assertEquals(UNKNOWN_BIOME, biome.bedrockId());
         assertEquals(1.9F, biome.temperature());
         assertEquals(0.15F, biome.downfall());
@@ -109,7 +108,7 @@ public class CustomBiomeCacheTest {
 
         RegistryEntry vanilla = new RegistryEntry(MinecraftKey.key("minecraft:plains"), NbtMap.EMPTY);
         assertNotEquals(UNKNOWN_BIOME, BiomeTranslator.loadServerBiome(
-            new RegistryEntryContext(mock(JavaRegistryProvider.class), vanilla, Optional.empty())).bedrockId());
+            new RegistryEntryContext(mock(JavaRegistryProvider.class), vanilla)).bedrockId());
     }
 
     @Test
@@ -355,7 +354,8 @@ public class CustomBiomeCacheTest {
             for (int i = 0; i < javaIdentifiers.length; i++) {
                 registry.register(i, MinecraftKey.key(javaIdentifiers[i]));
             }
-            registry.freeze(id -> data);
+            registry.freeze();
+            registry.bind(id -> data);
         }
 
         int biomeValue(String javaIdentifier) {
