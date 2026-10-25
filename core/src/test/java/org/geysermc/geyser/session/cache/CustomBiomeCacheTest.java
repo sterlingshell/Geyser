@@ -33,7 +33,9 @@ import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.cloudburstmc.protocol.bedrock.packet.BiomeDefinitionListPacket;
 import org.geysermc.geyser.GeyserBootstrap;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.api.biome.custom.CustomBiomeAppearance;
 import org.geysermc.geyser.api.biome.custom.CustomBiomeDefinition;
+import org.geysermc.geyser.api.biome.custom.CustomBiomePrecipitation;
 import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.level.JavaBiome;
 import org.geysermc.geyser.registry.Registries;
@@ -134,6 +136,29 @@ public class CustomBiomeCacheTest {
             assertEquals(0.15F, data.getDownfall());
             assertFalse(data.isRain());
             assertTrue(session.packets.isEmpty());
+        });
+    }
+
+    @Test
+    void precipitationIsCarriedAsDensities() {
+        GeyserMockContext.mockContext(() -> {
+            Map<Identifier, CustomBiomeDefinition> catalogue = new Object2ObjectOpenHashMap<>();
+            catalogue.put(Identifier.of("test:java_biome"), CustomBiomeDefinition.builder(Identifier.of("test:bedrock_biome"))
+                .appearance(CustomBiomeAppearance.builder()
+                    .precipitation(CustomBiomePrecipitation.of(CustomBiomePrecipitation.Type.RED_SPORES, 0.5F)))
+                .build());
+            Registries.CUSTOM_BIOMES.set(catalogue);
+
+            TestSession session = new TestSession("minecraft:plains", "test:java_biome");
+            session.cache.reconcile();
+            session.spawned.set(true);
+            BiomeDefinitionData data = session.cache.loginDefinitions().getDefinitions().get("test:bedrock_biome");
+            assertNotNull(data);
+            // Bedrock shows one particle type per biome, so only its density is set
+            assertEquals(0.5F, data.getRedSporeDensity());
+            assertEquals(0.0F, data.getBlueSporeDensity());
+            assertEquals(0.0F, data.getAshDensity());
+            assertEquals(0.0F, data.getWhiteAshDensity());
         });
     }
 

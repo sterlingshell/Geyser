@@ -90,7 +90,7 @@ public class CustomBiomesLoaderTest {
 
     private void assertMappings(Map<Identifier, CustomBiomeDefinition> biomes) {
         // The vanilla Bedrock namespace and malformed color entries are invalid and skipped
-        assertEquals(6, biomes.size());
+        assertEquals(9, biomes.size());
         // Java also allows three-float color arrays; those fail the biome instead of loading
         // without the color
         assertNull(biomes.get(Identifier.of("example:bad_color")));
@@ -143,6 +143,31 @@ public class CustomBiomesLoaderTest {
         assertNotNull(precipitation);
         assertEquals(CustomBiomePrecipitation.Type.BLUE_SPORES, precipitation.type());
         assertEquals(2.0F, precipitation.density());
+
+        // A Java biome's ambient particles become Bedrock precipitation; the unsupported
+        // cherry leaves entry is skipped in favour of the ash one
+        CustomBiomeDefinition ash = biomes.get(Identifier.of("my_datapack:ash_grove"));
+        assertNotNull(ash);
+        CustomBiomePrecipitation ashParticles = Objects.requireNonNull(ash.appearance()).precipitation();
+        assertNotNull(ashParticles);
+        assertEquals(CustomBiomePrecipitation.Type.ASH, ashParticles.type());
+        assertEquals(0.00625F * 2.0F / 0.118093334F, ashParticles.density(), 1.0e-4F);
+
+        // Java 1.21.6 and earlier kept the particles in effects.particle, with the options nested
+        CustomBiomeDefinition legacy = biomes.get(Identifier.of("my_datapack:legacy_mist"));
+        assertNotNull(legacy);
+        CustomBiomePrecipitation legacyParticles = Objects.requireNonNull(legacy.appearance()).precipitation();
+        assertNotNull(legacyParticles);
+        assertEquals(CustomBiomePrecipitation.Type.BLUE_SPORES, legacyParticles.type());
+        assertEquals(0.01428F * 2.0F / 0.118093334F, legacyParticles.density(), 1.0e-4F);
+
+        // An explicit geyser value overrides the one translated from the Java biome
+        CustomBiomeDefinition override = biomes.get(Identifier.of("my_datapack:ash_override"));
+        assertNotNull(override);
+        CustomBiomePrecipitation overrideParticles = Objects.requireNonNull(override.appearance()).precipitation();
+        assertNotNull(overrideParticles);
+        assertEquals(CustomBiomePrecipitation.Type.WHITE_ASH, overrideParticles.type());
+        assertEquals(0.75F, overrideParticles.density());
 
         CustomBiomeDefinition minimal = biomes.get(Identifier.of("example:minimal"));
         assertNotNull(minimal);

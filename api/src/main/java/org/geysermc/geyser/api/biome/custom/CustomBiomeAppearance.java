@@ -129,7 +129,10 @@ public interface CustomBiomeAppearance {
     @Nullable Color dryFoliageColor();
 
     /**
-     * The ambient ash or spore particles shown in this biome, or null for none.
+     * The ambient ash or spore particles shown in this biome, or null for none. A biome
+     * mapping whose Java biome declares ash or spore particles in its
+     * {@code minecraft:visual/ambient_particles} attribute gets them translated
+     * automatically, unless this value is set.
      *
      * @return the biome's ambient ash or spore particles
      * @since 2.11.3
@@ -253,7 +256,8 @@ public interface CustomBiomeAppearance {
         Builder dryFoliageColor(Color dryFoliageColor);
 
         /**
-         * Sets the ambient ash or spore particles shown in this biome.
+         * Sets the ambient ash or spore particles shown in this biome, overriding the
+         * particles translated from the Java biome's ambient particles.
          *
          * @param precipitation the ambient ash or spore particles
          * @see CustomBiomeAppearance#precipitation()

@@ -31,7 +31,9 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
 import org.cloudburstmc.protocol.bedrock.packet.BiomeDefinitionListPacket;
+import org.geysermc.geyser.api.biome.custom.CustomBiomeAppearance;
 import org.geysermc.geyser.api.biome.custom.CustomBiomeDefinition;
+import org.geysermc.geyser.api.biome.custom.CustomBiomePrecipitation;
 import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.level.JavaBiome;
 import org.geysermc.geyser.registry.Registries;
@@ -254,12 +256,30 @@ public final class CustomBiomeCache {
         JavaBiome biome = claim.biome();
         BiomeDefinitionData reference = Registries.BIOMES.get().getDefinitions().get(REFERENCE_BIOME);
         List<String> tags = claim.definition().tags().isEmpty() ? null : List.copyOf(claim.definition().tags());
+        // Bedrock shows one precipitation particle per biome, and each type has its own
+        // density field; the appearance carries the value whether it was configured or
+        // translated from the Java biome's ambient particles
+        CustomBiomeAppearance appearance = claim.definition().appearance();
+        CustomBiomePrecipitation precipitation = appearance == null ? null : appearance.precipitation();
+        float redSporeDensity = 0.0F;
+        float blueSporeDensity = 0.0F;
+        float ashDensity = 0.0F;
+        float whiteAshDensity = 0.0F;
+        if (precipitation != null) {
+            switch (precipitation.type()) {
+                case ASH -> ashDensity = precipitation.density();
+                case WHITE_ASH -> whiteAshDensity = precipitation.density();
+                case RED_SPORES -> redSporeDensity = precipitation.density();
+                case BLUE_SPORES -> blueSporeDensity = precipitation.density();
+            }
+        }
         // Depth, scale, foliage snow and the map water color are wire fields without a Java
         // equivalent, so vanilla values are copied. chunkGenData describes client-side world
         // generation, which never happens for proxied chunks; keeping it null also sidesteps
         // the CloudburstMC v975+ nested write path, which cannot round-trip it
-        return new BiomeDefinitionData(id, biome.temperature(), biome.downfall(), reference.getFoliageSnow(),
-            reference.getDepth(), reference.getScale(), reference.getMapWaterColor(), biome.hasPrecipitation(), tags, null);
+        return new BiomeDefinitionData(id, biome.temperature(), biome.downfall(), redSporeDensity, blueSporeDensity,
+            ashDensity, whiteAshDensity, reference.getFoliageSnow(), reference.getDepth(), reference.getScale(),
+            reference.getMapWaterColor(), biome.hasPrecipitation(), tags, null);
     }
 
     private static BiomeDefinitions buildDefinitions(Map<Identifier, SentBiome> union) {

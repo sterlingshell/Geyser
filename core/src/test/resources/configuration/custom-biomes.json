@@ -28,6 +28,48 @@
         }
       }
     },
+    "my_datapack:ash_grove": {
+      "attributes": {
+        "minecraft:visual/ambient_particles": [
+          {
+            "particle": { "type": "minecraft:cherry_leaves" },
+            "probability": 0.01
+          },
+          {
+            "particle": { "type": "minecraft:ash" },
+            "probability": 0.00625
+          }
+        ]
+      },
+      "geyser": {
+        "bedrock_identifier": "my_datapack:ash_grove"
+      }
+    },
+    "my_datapack:legacy_mist": {
+      "effects": {
+        "particle": {
+          "options": { "type": "warped_spore" },
+          "probability": 0.01428
+        }
+      }
+    },
+    "my_datapack:ash_override": {
+      "attributes": {
+        "minecraft:visual/ambient_particles": [
+          {
+            "particle": { "type": "minecraft:ash" },
+            "probability": 0.00625
+          }
+        ]
+      },
+      "geyser": {
+        "bedrock_identifier": "my_datapack:ash_override",
+        "precipitation": {
+          "type": "white_ash",
+          "density": 0.75
+        }
+      }
+    },
     "example:minimal": {
       "geyser": {
         "bedrock_identifier": "example:minimal"
