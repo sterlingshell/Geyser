@@ -10,7 +10,13 @@ import org.cloudburstmc.protocol.bedrock.packet.CraftingDataPacket;
 import org.geysermc.geyser.api.recipe.CustomRecipe;
 import org.geysermc.geyser.registry.CustomRecipeRegistry;
 import org.geysermc.geyser.registry.type.ItemMapping;
+import org.geysermc.geyser.inventory.GeyserItemStack;
 import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.translator.item.ItemTranslator;
+import org.geysermc.geyser.util.MinecraftKey;
+import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponentTypes;
+import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponents;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,14 +91,22 @@ public final class CustomRecipeTranslator {
                 mapping.getBedrockData()), ingredient.count());
     }
 
-    private static ItemData output(GeyserSession session, CustomRecipe.Ingredient result) {
+    private static ItemData output(GeyserSession session, CustomRecipe.Result result) {
         ItemMapping mapping = session.getItemMappings().getMapping(result.javaIdentifier());
         if (mapping == null) {
             return null;
         }
-        return ItemData.builder()
-                .definition(mapping.getBedrockDefinition())
-                .count(result.count())
-                .build();
+        GeyserItemStack stack;
+        if (result.itemModel() == null) {
+            stack = GeyserItemStack.of(session, mapping.getJavaItem().javaId(), result.count());
+        } else {
+            // The same lookup CustomItemTranslator uses: a Java item plus its item model is a custom
+            // item, and translating the stack carries its Bedrock NBT with it.
+            DataComponents components = new DataComponents(new Reference2ObjectOpenHashMap<>());
+            components.put(DataComponentTypes.ITEM_MODEL, MinecraftKey.key(result.itemModel().toString()));
+            stack = GeyserItemStack.of(session, mapping.getJavaItem().javaId(), result.count(), components);
+        }
+        ItemData data = ItemTranslator.translateToBedrock(session, stack);
+        return data.isValid() ? data : null;
     }
 }

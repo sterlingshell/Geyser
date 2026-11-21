@@ -1,6 +1,7 @@
 package org.geysermc.geyser.api.recipe;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.geyser.api.util.Identifier;
 
 import java.util.List;
@@ -24,9 +25,25 @@ public sealed interface CustomRecipe permits CustomRecipe.Shaped, CustomRecipe.S
         }
     }
 
+    /**
+     * What the recipe makes. A custom item is named by the Java item model it maps, which is how
+     * Geyser already finds a custom item's Bedrock form; null means an ordinary item.
+     */
+    record Result(@NonNull String javaIdentifier, int count, @Nullable Identifier itemModel) {
+        public Result {
+            if (count < 1) {
+                throw new IllegalArgumentException("count must be at least 1");
+            }
+        }
+
+        public Result(@NonNull String javaIdentifier, int count) {
+            this(javaIdentifier, count, null);
+        }
+    }
+
     /** A shaped recipe; a space in the pattern is an empty cell. */
     record Shaped(@NonNull Identifier identifier, @NonNull List<String> pattern,
-                  @NonNull Map<Character, Ingredient> key, @NonNull Ingredient result) implements CustomRecipe {
+                  @NonNull Map<Character, Ingredient> key, @NonNull Result result) implements CustomRecipe {
         public Shaped {
             if (pattern.isEmpty()) {
                 throw new IllegalArgumentException("pattern must have at least one row");
@@ -36,7 +53,7 @@ public sealed interface CustomRecipe permits CustomRecipe.Shaped, CustomRecipe.S
 
     /** A shapeless recipe: the ingredients in any arrangement. */
     record Shapeless(@NonNull Identifier identifier, @NonNull List<Ingredient> ingredients,
-                     @NonNull Ingredient result) implements CustomRecipe {
+                     @NonNull Result result) implements CustomRecipe {
         public Shapeless {
             if (ingredients.isEmpty()) {
                 throw new IllegalArgumentException("ingredients must not be empty");
