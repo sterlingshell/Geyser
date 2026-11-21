@@ -50,6 +50,7 @@ public class JavaStartConfigurationTranslator extends PacketTranslator<Clientbou
 
         // The pending custom biome candidate was built against the previous phase's registry
         session.getCustomBiomeCache().discardPending();
+        session.setReconfigCount(session.getReconfigCount() + 1);
 
         ChunkUtils.sendEmptyChunks(session, session.getPlayerEntity().position().toInt(), session.getServerRenderDistance(), false);
 
