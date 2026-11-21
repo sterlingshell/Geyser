@@ -39,6 +39,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescripto
 import org.cloudburstmc.protocol.bedrock.packet.CraftingDataPacket;
 import org.cloudburstmc.protocol.bedrock.packet.TrimDataPacket;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.inventory.recipe.CustomRecipeTranslator;
 import org.geysermc.geyser.inventory.recipe.GeyserRecipe;
 import org.geysermc.geyser.inventory.recipe.GeyserShapedRecipe;
 import org.geysermc.geyser.inventory.recipe.GeyserShapelessRecipe;
@@ -113,6 +114,7 @@ public class JavaUpdateRecipesTranslator extends PacketTranslator<ClientboundUpd
                 }
             }
             session.getTrimRecipes().addAllSmithingRecipes(session, craftingDataPacket);
+            CustomRecipeTranslator.append(session, craftingDataPacket);
         }
 
         // As we now populate recipes that can differ,
